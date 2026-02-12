@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>タイピングCity！</title>
+    <script src="https://cdn.unityroom.com"></script>
+    <style>
+        body { background: linear-gradient(to bottom, #000814, #001f3f); color: #0ff; text-align: center; font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; overflow: hidden; margin: 0; }
+        #moon-container { position: fixed; top: 50px; right: 80px; width: 80px; height: 80px; z-index: -2; }
+        #moon { width: 100%; height: 100%; background: #ffffcc; border-radius: 50%; box-shadow: 0 0 40px #ffffcc; position: relative; overflow: hidden; }
+        #moon-shadow { position: absolute; top: 0; width: 100%; height: 100%; background: #000814; border-radius: 50%; transition: 0.5s; }
+        #city-bg { position: fixed; bottom: 0; width: 100%; height: 250px; display: flex; justify-content: space-around; align-items: flex-end; z-index: -1; }
+        .building { width: 75px; background: #111; border-top: 2px solid #222; position: relative; }
+        .window { width: 14px; height: 14px; background: #050505; margin: 8px auto; transition: 0.3s; border-radius: 2px; }
+        .on { background: #fff176; box-shadow: 0 0 15px #fff176; }
+        #ui-layer { position: relative; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); }
+        .screen { display: none; width: 85%; max-width: 650px; padding: 40px; background: rgba(0,10,20,0.95); border: 3px solid #0ff; border-radius: 15px; box-shadow: 0 0 30px #044; }
+        button { background: #003; color: #0ff; border: 2px solid #0ff; padding: 12px 30px; font-size: 22px; cursor: pointer; margin: 10px; border-radius: 5px; transition: 0.2s; }
+        button:hover { background: #0ff; color: #000; }
+        #word-area { font-size: 50px; margin: 20px; font-weight: bold; letter-spacing: 4px; min-height: 1.2em; font-family: 'Courier New', monospace; }
+        #kana-display { font-size: 28px; color: #ffd700; margin-bottom: 10px; }
+        #stats { font-size: 20px; margin-bottom: 10px; }
+        #power-gauge { width: 100%; height: 25px; border: 2px solid #0ff; margin: 15px 0; background: #000; }
+        #power-bar { width: 100%; height: 100%; background: #0ff; transition: 0.1s; }
+    </style>
+</head>
+<body>
+    <div id="moon-container"><div id="moon"><div id="moon-shadow"></div></div></div>
+    <div id="city-bg"></div>
+
+    <div id="ui-layer">
+        <div id="menu-screen" class="screen" style="display: block;">
+            <h1>⚡ タイピングCity！ ⚡</h1>
+            <p id="high-score-text">最高記録: 0W</p>
+            <p id="total-score-text">累計発電量: 0W</p>
+            <button id="btn-start">勤務開始（スタート）</button><br>
+            <button id="btn-record">活動記録</button>
+            <button id="btn-delete" style="color: #ff4444; border-color: #ff4444; font-size: 16px;">記録抹消</button>
+        </div>
+        <div id="story-screen" class="screen">
+            <h2>電力員への辞令</h2>
+            <p style="text-align: left; line-height: 1.8;">指先が生む一文字が火花となり、街を照らします。電力量がゼロになる前に発電を開始してください！</p>
+            <button id="btn-story-ok">了解、直ちに発電に入る！</button>
+        </div>
+        <div id="game-screen" class="screen">
+            <div id="stats">⚡ 電力量: <span id="p-val">100</span>% | 発電中: <span id="s-val">0</span>W</div>
+            <div id="power-gauge"><div id="power-bar"></div></div>
+            <div id="kana-display"></div>
+            <div id="word-area"></div>
+        </div>
+        <div id="result-screen" class="screen">
+            <h2 style="color: #ff4444;">BLACKOUT</h2>
+            <p id="final-score" style="font-size: 24px;"></p>
+            <button onclick="location.reload()">本部へ戻る</button>
+        </div>
+    </div>
+
+    <script>
+        const UNITYROOM_API_KEY = "/sSp3O+cEf5Bco80+ESi+TmpCwxlZ0ndsywZzuJzumCrOkkZmSgk5ueG7yYws2j8h0RhIvtU3f7AyxOzWuakRg==";
+
+               const words = [
+            {k: "しんごう", r: ["SHINGOU"]},
+            {k: "ちかてつ", r: ["CHIKATETSU", "TIKATETSU", "CHIKATETU", "TIKATETU"]},
+            {k: "つうしん", r: ["TSUUSHIN", "TUUSHIN", "TSUUSIN", "TUUSIN"]},
+            {k: "はつでんき", r: ["HATSUDENKI", "HATUDENKI"]},
+            {k: "でんりょく", r: ["DENRYOKU"]},
+            {k: "ふっかつ", r: ["FUKKATSU", "HUKKATSU", "FUKKATU", "HUKKATU"]},
+            {k: "エネルギー", r: ["ENERUGI-"]},
+            {k: "たいぴんぐ", r: ["TAIPINGU"]},
+            {k: "ていでん", r: ["TEIDEN"]},
+            {k: "がいろとう", r: ["GAIROUTOU"]},
+            {k: "ビルディング", r: ["BIRUDINGU"]},
+            {k: "こうじょう", r: ["KOUJOU"]},
+            {k: "こうえん", r: ["KOUEN"]},
+            {k: "でんせん", r: ["DENSEN"]},
+            {k: "へんあつき", r: ["HENATSUKI", "HENATUKI"]},
+            {k: "しゅうり", r: ["SHUURI", "SYUURI"]},
+            {k: "てんけん", r: ["TENKEN"]},
+            {k: "ぎじゅつ", r: ["GIJUTSU", "GIJUTU"]},
+            {k: "さぎょう", r: ["SAGYOU"]},
+            {k: "かんり", r: ["KANRI"]},
+            {k: "どりょく", r: ["DORYOKU"]},
+            {k: "ほうしゅう", r: ["HOUSHUU"]},
+            {k: "システム", r: ["SHISUTEMU", "SISUTEMU"]},
+            {k: "ネットワーク", r: ["NETTO-WA-KU"]},
+            {k: "バッテリー", r: ["BATTERI-"]},
+            {k: "タービン", r: ["TA-BIN"]},
+            {k: "ボルト", r: ["BORUTO"]},
+            {k: "アンペア", r: ["ANPEA"]},
+            {k: "ワット", r: ["WATTO"]},
+            {k: "きぼう", r: ["KIBOU"]},
+            {k: "みらい", r: ["MIRAI"]},
+            {k: "ぜんりょく", r: ["ZENRYOKU"]},
+            {k: "スピード", r: ["SUPI-DO"]},
+            {k: "ありがとう", r: ["ARIGATOU"]}
+        ];
+
+        let power = 100, score = 0, speed = 1.0, isPlaying = false, currentWord = {}, typedStr = "";
+        let best = parseInt(localStorage.getItem('tc_best') || 0);
+        let total = parseInt(localStorage.getItem('tc_total') || 0);
+
+        document.getElementById('moon-shadow').style.left = (Math.random() * 90) + "%";
+        const bg = document.getElementById('city-bg');
+        for(let i=0; i<8; i++){
+            let b = document.createElement('div'); b.className = 'building'; b.style.height = (100 + Math.random()*120) + 'px';
+            for(let j=0; j<6; j++) b.innerHTML += '<div class="window"></div>';
+            bg.appendChild(b);
+        }
+        const windows = document.querySelectorAll('.window');
+
+        function updateUI() {
+            document.getElementById('p-val').innerText = Math.max(0, Math.floor(power));
+            document.getElementById('s-val').innerText = score;
+            document.getElementById('power-bar').style.width = power + "%";
+            windows.forEach((w, i) => {
+                if(power > (i/windows.length)*100) w.classList.add('on');
+                else w.classList.remove('on');
+            });
+            document.getElementById('high-score-text').innerText = `最高記録: ${best}W`;
+            document.getElementById('total-score-text').innerText = `累計発電量: ${total}W`;
+        }
+
+        function nextWord() {
+            currentWord = words[Math.floor(Math.random()*words.length)];
+            typedStr = "";
+            document.getElementById('kana-display').innerText = currentWord.k;
+            renderWord();
+        }
+
+        function renderWord() {
+            const base = currentWord.r.find(p => p.startsWith(typedStr)) || currentWord.r;
+            const remain = base.substring(typedStr.length);
+            document.getElementById('word-area').innerHTML = `<span style="color:#fff">${typedStr}</span><span style="color:#444">${remain}</span>`;
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'block';
+            
+    　　　　total += score; if(score > best) best = score;
+            localStorage.setItem('tc_best', best); localStorage.setItem('tc_total', total);
+            document.getElementById('final-score').innerHTML = `今回の発電量: ${score}W<br>累計発電量: ${total}W`;
+
+    　　　　　if (typeof unityroom !== 'undefined') {
+                unityroom.score.send(1, score, UNITYROOM_API_KEY);
+            }
+        }
+
+        function gameLoop() {
+            if(!isPlaying) return;
+            power -= (0.12 * speed); speed += 0.001;
+            updateUI();
+            if(power <= 0) gameOver();
+            else setTimeout(gameLoop, 100);
+        }
+
+        document.getElementById('btn-start').onclick = function() {
+            document.getElementById('menu-screen').style.display = 'none';
+            if(localStorage.getItem('tc_first') === null) {
+                document.getElementById('story-screen').style.display = 'block';
+            } else {
+                startActualGame();
+            }
+        };
+
+        document.getElementById('btn-story-ok').onclick = startActualGame;
+        function startActualGame() {
+            localStorage.setItem('tc_first', 'done');
+            document.getElementById('story-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            isPlaying = true; nextWord(); gameLoop();
+        }
+
+        document.getElementById('btn-record').onclick = function() {
+            alert(`【電力員データ】\n最高出力: ${best}W\n累計発電量: ${total}W`);
+        };
+
+        document.getElementById('btn-delete').onclick = function() {
+            if(confirm("全記録を消去します。よろしいですか？")) {
+                localStorage.clear(); location.reload();
+            }
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if(!isPlaying) return;
+            const key = e.key.toUpperCase();
+            if(key.length !== 1) return;
+            const nextStr = typedStr + key;
+            const isMatch = currentWord.r.some(pattern => pattern.startsWith(nextStr));
+            if(isMatch) {
+                typedStr = nextStr;
+                if(currentWord.r.some(pattern => pattern === typedStr)) {
+                    score += (typedStr.length * 10); power = Math.min(100, power + 6);
+                    nextWord();
+                } else { renderWord(); }
+            }
+            updateUI();
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
