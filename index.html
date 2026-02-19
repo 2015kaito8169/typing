@@ -2,6 +2,86 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <title>mailmail</title>
+    <style>
+        :root { --primary: #4C97FF; --accent: #2b7fff; --bg: #f4f7f9; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg); overflow-x: hidden; }
+        
+        /* --- 🔐 ログイン・ガード画面 --- */
+        #mm-auth-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            z-index: 10000; display: flex; justify-content: center; align-items: center;
+        }
+        .auth-card {
+            background: rgba(255, 255, 255, 0.98); padding: 50px; border-radius: 32px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.2); width: 360px; text-align: center;
+            backdrop-filter: blur(10px); animation: fadeIn 0.8s ease;
+        }
+        .logo-icon {
+            width: 70px; height: 70px; background: var(--primary); border-radius: 20px;
+            display: flex; justify-content: center; align-items: center; margin: 0 auto 20px;
+            box-shadow: 0 10px 20px rgba(76, 151, 255, 0.3); color: white; font-size: 38px; font-weight: 900;
+        }
+        .auth-card h1 { color: #333; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+        .auth-card input {
+            width: 100%; padding: 16px; margin: 10px 0;
+            border: 2px solid #f0f3f6; border-radius: 14px; box-sizing: border-box;
+            font-size: 16px; outline: none; background: #f8fafc; transition: 0.3s;
+        }
+        .auth-card input:focus { border-color: var(--primary); background: white; }
+        .login-btn {
+            width: 100%; padding: 18px; background: var(--primary); color: white;
+            border: none; border-radius: 14px; cursor: pointer; font-weight: bold; font-size: 17px; margin-top: 20px;
+            box-shadow: 0 10px 25px rgba(76, 151, 255, 0.3); transition: 0.3s;
+        }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(76, 151, 255, 0.4); }
+
+        /* --- 🔓 認証後のメインコンテンツエリア --- */
+        #main-app { display: none; min-height: 100vh; animation: contentSlide 0.6s ease; }
+        header { background: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; }
+        .app-logo { color: var(--primary); font-weight: 900; font-size: 26px; }
+        .content-body { padding: 40px; max-width: 1000px; margin: 0 auto; line-height: 1.6; color: #444; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        @keyframes contentSlide { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<!-- 🔑 ログイン画面 -->
+<div id="mm-auth-overlay">
+    <div class="auth-card">
+        <div class="logo-icon">m</div>
+        <h1>mailmail</h1>
+        <p id="mm-status" style="font-size:13px; color:#999; margin-top:10px;">すべての内容を入力してログイン</p>
+　　　　<a style="font-size:13px; color:#0000EE; margin-top:10px;"href="https://2015kaito8169/github.io/mailmailAPI/">このページが表示された理由</a>　
+		<input type="text" id="mm-id" placeholder="ユーザーID">
+        <input type="password" id="mm-pw" placeholder="パスワード">
+        <button class="login-btn" onclick="handleLogin()">ログイン</button>
+        <p id="mm-status" style="font-size:13px; color:#999; margin-top:10px;">アカウントをお持ちではありませんか</p>
+		<a href="https://mailmailservice.onrender.com/">新規登録</a>
+               <p id="mm-status" style="font-size:13px; color:#999; margin-top:10px;">パスワードを忘れましたか</p>
+		<a href="https://後で表示するURL.com">パスワードを復元</a>
+	</div>
+</div>
+
+<!-- 📦 隠しコンテンツ (ログイン成功後に表示) -->
+<div id="main-app">
+    <header>
+        <div class="app-logo">mailmail分家API</div>
+        <div style="display:flex; align-items:center; gap:20px;">
+            <span id="user-display" style="font-weight: 800; color: #555;"></span>
+            <button onclick="logout()" style="background:#ff4c4c; color:white; border:none; padding:8px 18px; border-radius:10px; cursor:pointer; font-weight:bold;">ログアウト</button>
+        </div>
+    </header>
+
+    <div class="content-body">
+        <!-- ★ ここにログイン後に見せたい中身を自由に書いてください -->
+        <!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
     <title>タイピングCity！</title>
     <script src="https://cdn.unityroom.com"></script>
     <style>
@@ -200,5 +280,61 @@
 
         updateUI();
     </script>
+</body>
+</html>
+
+        <!-- ★ ここまで -->
+    </div>
+</div>
+
+<script>
+    const API_URL = 'https://sparkling-pine-6d7c.kaito20158169.workers.dev';
+
+    // 初期化チェック (セッション維持)
+    (function init() {
+        const session = sessionStorage.getItem('mm_access_key');
+        if (session) {
+            unlockPage(session);
+        }
+    })();
+
+    // ログイン処理
+    async function handleLogin() {
+        const id = document.getElementById('mm-id').value.trim();
+        const pw = document.getElementById('mm-pw').value.trim();
+        const status = document.getElementById('mm-status');
+
+        if (!id || !pw) return;
+
+        try {
+            // Workerからパスワードを取得して照合
+            const res = await fetch(`${API_URL}/get?key=auth:${id}`);
+            const data = await res.json();
+
+            if (data.value === String(pw)) {
+                sessionStorage.setItem('mm_access_key', id);
+                unlockPage(id);
+            } else {
+                status.innerText = "認証失敗。IDまたはパスワードが違います。";
+                status.style.color = "#ff4c4c";
+            }
+        } catch (e) {
+            status.innerText = "サーバーエラー。接続を確認してください。";
+        }
+    }
+
+    // ページをアンロック
+    function unlockPage(user) {
+        document.getElementById('mm-auth-overlay').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+        document.getElementById('user-display').innerText = "👤 " + user;
+    }
+
+    // ログアウト
+    function logout() {
+        sessionStorage.clear();
+        location.reload();
+    }
+</script>
 </body>
 </html>
